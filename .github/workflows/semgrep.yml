@@ -1,26 +1,59 @@
+# REV 1.7
+# 1.0 - initial release
+# 1.1 - updated container image address to point to internal cache harbor
+# 1.2 - implementing REV version(s) for quick version validation/comparison
+# 1.3 - implementing reusable workflow
+# 1.4 - implementing auto tagging feature and command flag support (https://github.com/intel-innersource/frameworks.actions.semgrep-auto-tag-scan)
+# 1.5 - implementing feature to fail pull request if specified number of high and/or medium findings are present and allow user to input prod branch
+# 1.6 - implementing multi-tag support
+# 1.7 - use main branch's workflow instead of specified version
+
+# Name of this GitHub Actions workflow.
+name: Semgrep SAST
+
 on:
-  workflow_dispatch: {}
+  # Scan changed files in PRs (diff-aware scanning):
   pull_request: {}
+
+  # Scan on-demand through GitHub Actions interface:
+  workflow_dispatch: {}
+
+  # Scan mainline branches and report all findings:
+  # Ensure you have the correct branch/es for your project
+  # Recommend only setting the default branch on push, or branches you push to frequently
   push:
-    branches:
-    - main
-    - master
-    paths:
-    - .github/workflows/semgrep.yml
-  schedule:
-  # random HH:MM to avoid a load spike on GitHub Actions at 00:00
-  - cron: 19 8 * * *
-name: Semgrep
+    branches: ["main"]
+
+  # Schedule the CI job (this method uses cron syntax):
+  #schedule:
+    #- cron: '0 0 1 * *' # Sets Semgrep to scan on the 1st of every month at 12:00 AM UTC.
+    # It is recommended to change the schedule to a random time.
+
 jobs:
-  semgrep:
-    name: semgrep/ci
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    env:
+  Call-Workflow:
+    uses: intel-innersource/frameworks.actions.semgrep-static-code-scan/.github/workflows/semgrep.yml@main
+    with:
+      # (Required) Please insert the runner group for your project
+      # Example: runner-group: 'innersource.prod.amr.dind'
+      runner-group: ''
+      # (Optional) Please insert the IAPM ID of the application here
+      # If you have more than 1 IAPM ID, please separate them with a comma
+      # If at least 1 ID has not been entered the auto-tagging feature will not work
+      iapm-ids: ''
+      # (Optional) Please insert the branch that should be tagged as "prod"
+      prod-branch: ''
+      # (Optional) Please indicate if this should be calculated for ASPN scoring entering true
+      # If set to true, the default branch will be tagged as prod and all other branches will be tagged as dev
+      prod-scan: ''
+      # (Optional) Enter any option command flags for debugging the scan or obtaining additional details
+      # Example: '--verbose --max-target-bytes=500000'
+      semgrep-flags: ''
+      # (Optional) Enter the max number of high serverity findings to tolerate before failing a PR
+      max-high-severity: ''
+      # (Optional) Enter the max number of medium severity findings to tolerate before failing a PR
+      max-medium-severity: ''
+      # (Optional) If you would like to tag your project with something other than the IAPM ID
+      # You can enter them here separated by a comma
+      other-tags: ''
+    secrets:
       SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
-    container:
-      image: semgrep/semgrep
-    steps:
-    - uses: actions/checkout@v4
-    - run: semgrep ci
